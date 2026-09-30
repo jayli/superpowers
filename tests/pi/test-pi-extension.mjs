@@ -117,6 +117,25 @@ test('before_agent_start persists the bootstrap when the projection lacks it', a
     /general-purpose/,
     'injected mapping must warn that the template agent name is not a pi agent',
   );
+
+  // A, B, C — the injected text is the only copy the model is guaranteed to
+  // read, so each dispatch-shaping decision has to be visible here and not
+  // only in the reference file.
+  assert.match(
+    result.message.content,
+    /defaultContext/,
+    'injected mapping must carry the child-context policy',
+  );
+  assert.match(
+    result.message.content,
+    /runs\.all/,
+    'injected mapping must carry the parallel fanout shape',
+  );
+  assert.match(
+    result.message.content,
+    /enter_plan_mode/,
+    'injected mapping must relate plan mode to the brainstorming gate',
+  );
 });
 
 test('before_agent_start does not re-inject when the projection already has the entry', async () => {
@@ -275,5 +294,65 @@ test('pi tools reference is accurate about fields and child capabilities', async
     text,
     /inheritSkills/,
     'reference must record that dispatched children do not inherit skills',
+  );
+});
+
+// B: context policy. pi-subagents gives forked runs the parent's history, and
+// its own guidance is to use fresh context for adversarial review. The skill
+// catalog never names this dimension, so a controller that reaches for `oracle`
+// (defaultContext: fork) for a review gets history it did not intend to hand
+// over, while the reviewer it should have used inverts that expectation.
+test('pi tools reference documents child context policy', async () => {
+  const text = await readFile(piToolsPath, 'utf8');
+
+  assert.match(text, /defaultContext/, 'reference must name the field that decides child context');
+  assert.match(
+    text,
+    /\bfork\b/,
+    'reference must describe the forked case, since oracle defaults to it',
+  );
+  assert.ok(
+    /oracle/.test(text) && /fork/.test(text),
+    'reference must flag that oracle inherits parent history by default',
+  );
+  assert.match(
+    text,
+    /adversarial/i,
+    'reference must carry pi-subagents advice to keep adversarial review fresh',
+  );
+});
+
+// A: parallel dispatch. A skill says "issue all dispatches in the same
+// response". Pi does run sibling tool calls from one message in parallel, so
+// the instruction is not wrong — but pi-subagents directs fanout through one
+// `runs.all(...)` workflow, so the reference has to separate "can" from
+// "should" instead of leaving the reader to guess.
+test('pi tools reference covers both parallel dispatch shapes', async () => {
+  const text = await readFile(piToolsPath, 'utf8');
+
+  assert.match(text, /runs\.all/, 'reference must name the workflow fanout helper');
+  assert.match(
+    text,
+    /one assistant message/i,
+    'reference must state that sibling tool calls from one message run in parallel',
+  );
+  assert.match(
+    text,
+    /workflowScript/,
+    'reference must name the single-orchestration form for fanout',
+  );
+});
+
+// C: two design flows. The repo's skills gate implementation behind
+// brainstorming; the Pi harness has its own plan mode. A reader that does not
+// know they are the same gate, not two, will run both.
+test('pi tools reference relates plan mode to the brainstorming gate', async () => {
+  const text = await readFile(piToolsPath, 'utf8');
+
+  assert.match(text, /enter_plan_mode/, 'reference must name the harness plan-mode tool');
+  assert.match(
+    text,
+    /either-or|one design flow|not both/i,
+    'reference must say brainstorming and plan mode are alternatives, not a sequence',
   );
 });

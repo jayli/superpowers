@@ -108,6 +108,12 @@ Skills write dispatches as \`Subagent (general-purpose):\` with \`description\`,
 
 When a skill tells you to choose a model per role and pass it explicitly, check \`subagents.modelScope\` in the user and project settings first. With \`enforce: true\` an out-of-scope *explicit* model is a hard error that aborts the run, and \`strict: true\` makes inherited models hard errors too; \`allow: ["inherit"]\` permits only the parent session's current model. If your chosen model is outside the list, omit the model and let the child inherit, or ask your human partner to widen the scope — never route around it yourself. Scope rejects or warns; it never selects a model.
 
+Each agent's \`defaultContext\` decides whether a child starts clean or inherits your conversation: \`worker\`, \`reviewer\`, \`scout\`, \`researcher\`, and \`delegate\` start fresh, while \`oracle\` forks your history. Adversarial review wants fresh context — a forked reviewer tends to converge on your own framing — so use \`reviewer\` for a review seat and pass \`context: "fresh"\` explicitly if you review with another agent. Reserve \`oracle\` for its actual job: decision consistency against state agreed earlier. Explicit forking needs a persisted parent session; without one, an agent-level \`defaultContext: fork\` falls back to fresh.
+
+For parallel fanout, sibling tool calls from one assistant message do run in parallel, but pi-subagents directs fanout through one workflow: \`subagent({ workflowScript: "const r = await runs.all([...]); return r.map(x => x.output)" })\`. Use that shape when you plan to aggregate, sequence, retry, or steer the children, and keep it to a single top-level orchestration per turn; use separate direct calls when the children are independent and you will read each receipt as it lands.
+
+Pi has its own plan mode (\`enter_plan_mode\` / \`exit_plan_mode\`), and it is either-or with brainstorming, not a second step: if you already loaded \`brainstorming\` this run, follow that skill's approval gate and do not enter plan mode for the same task; if the task hits the plan gate without brainstorming loaded, plan mode is the gate, and inside it you write nothing and commit nothing — one-question-at-a-time there is \`ask_user_question\`.
+
 Pi does not ship a standard task-list tool. If an installed todo/task tool is available, use it. Otherwise track work in plan files or a repo-local \`TODO.md\` when task tracking is needed. Treat older \`TodoWrite\` references as this task-tracking action.`;
 }
 
