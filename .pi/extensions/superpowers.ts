@@ -5,6 +5,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const EXTREMELY_IMPORTANT_MARKER = "<EXTREMELY_IMPORTANT>";
 const BOOTSTRAP_MARKER = "superpowers:using-superpowers bootstrap for pi";
+const BOOTSTRAP_CUSTOM_TYPE = "superpowers-bootstrap";
 
 const extensionDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(extensionDir, "../..");
@@ -14,30 +15,37 @@ const bootstrapSkillPath = resolve(skillsDir, "using-superpowers", "SKILL.md");
 let cachedBootstrap: string | null | undefined;
 
 export default function superpowersPiExtension(pi: ExtensionAPI) {
-	let injectBootstrap = true;
-
 	pi.on("resources_discover", async () => ({
 		skillPaths: [skillsDir],
 	}));
 
-	pi.on("session_start", async () => {
-		injectBootstrap = true;
+	// The bootstrap is injected as a persisted `custom_message` entry rather than as a
+	// request-time `context` transform. A `context` transform is restored after each
+	// request and never reaches the session file, so the next turn's history no longer
+	// contains it and the dedup guard below would find nothing to match.
+	pi.on("before_agent_start", async (_event, ctx) => {
+		const bootstrap = getBootstrapContent();
+		if (!bootstrap) return undefined;
+		if (projectionHasBootstrap(ctx.sessionManager.buildContextEntries())) return undefined;
+
+		return {
+			message: {
+				customType: BOOTSTRAP_CUSTOM_TYPE,
+				content: bootstrap,
+				display: false,
+			},
+		};
 	});
 
-	pi.on("session_compact", async () => {
-		injectBootstrap = true;
-	});
-
-	pi.on("agent_end", async () => {
-		injectBootstrap = false;
-	});
-
+	// Safety net for the one window `before_agent_start` cannot cover: compaction that
+	// lands mid-run, after the persisted entry has been summarized away but before the
+	// next run starts. It injects for that request only; the next run persists a fresh
+	// entry through the handler above.
 	pi.on("context", async (event) => {
-		if (!injectBootstrap) return;
-		if (event.messages.some(messageContainsBootstrap)) return;
+		if (event.messages.some(messageContainsBootstrap)) return undefined;
 
 		const bootstrap = getBootstrapContent();
-		if (!bootstrap) return;
+		if (!bootstrap) return undefined;
 
 		const bootstrapMessage = {
 			role: "user" as const,
@@ -97,8 +105,19 @@ Pi does not ship a standard subagent tool. If a subagent tool such as \`subagent
 Pi does not ship a standard task-list tool. If an installed todo/task tool is available, use it. Otherwise track work in plan files or a repo-local \`TODO.md\` when task tracking is needed. Treat older \`TodoWrite\` references as this task-tracking action.`;
 }
 
+/** True when the model-visible projection already carries a persisted bootstrap entry. */
+function projectionHasBootstrap(entries: readonly unknown[]): boolean {
+	return entries.some((entry) => {
+		const record = entry as { type?: unknown; customType?: unknown };
+		return record.type === "custom_message" && record.customType === BOOTSTRAP_CUSTOM_TYPE;
+	});
+}
+
 function messageContainsBootstrap(message: unknown): boolean {
-	const content = (message as { content?: unknown }).content;
+	const record = message as { role?: unknown; customType?: unknown; content?: unknown };
+	if (record.role === "custom" && record.customType === BOOTSTRAP_CUSTOM_TYPE) return true;
+
+	const content = record.content;
 	if (typeof content === "string") return content.includes(BOOTSTRAP_MARKER);
 	if (!Array.isArray(content)) return false;
 	return content.some((part) => {

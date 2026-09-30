@@ -427,10 +427,20 @@ messages break some models (#894). Three things you must replicate:
   `EXTREMELY_IMPORTANT` tag; matching the tag is more robust since it needs no
   harness-specific constant.) Cache the bootstrap content at module level so
   you're not re-reading and re-parsing `SKILL.md` on every call (#1202).
+  **Prefer a persisted injection over a request-time transform when the harness
+offers one.** pi injects through `before_agent_start` returning a `custom_message`,
+  which pi writes into the session, so the entry is still in history on every later
+  turn and the dedup guard matches it. A request-time transform (`context` on pi)
+  is restored after the request and never reaches the session file, so the next
+  turn's history lacks it — the guard matches nothing and a per-turn reset flag
+  silently drops the bootstrap from turn two onward. If your harness only exposes
+  a request-time transform, re-inject on every request and dedup per request;
+  never gate re-injection on a flag that a per-turn event clears.
 - **Compaction.** If the harness compacts/summarizes history, re-inject
-  afterward. pi sets an `injectBootstrap` flag on `session_start` and
-  `session_compact`, clears it on `agent_end`, and inserts the message *after*
-  any leading compaction-summary messages. OpenCode relies on its per-step
+  afterward, and make sure the re-injection survives the *next* turn too. pi
+  persists the bootstrap via `before_agent_start` and keeps a request-time
+  `context` safety net for a compaction that lands mid-run, inserting the message
+  *after* any leading compaction-summary messages. OpenCode relies on its per-step
   re-injection plus the dedup guard.
 - **Message-object shape is per-harness — discover yours, don't copy a literal.**
   The two references use *incompatible* shapes: pi builds
@@ -803,7 +813,7 @@ Use this as the live index; when in doubt, read the files, not this table.
 | Gemini CLI | `gemini-extension.json` + `GEMINI.md` | instructions file `@`-includes bootstrap + mapping | `references/gemini-tools.md` | — | `gemini extensions install` |
 | Kimi Code | `.kimi-plugin/plugin.json` | manifest `sessionStart.skill` loads `using-superpowers` | inline `skillInstructions` in manifest | `tests/kimi/` | marketplace or `/plugins install` GitHub URL |
 | OpenCode | `.opencode/plugins/superpowers.js` (root `package.json` `main` for package installs; root `index.js` re-export for the V2 directory form) | in-process: `config` hook registers skills dir; `experimental.chat.messages.transform` (V1) / `session.hook("context")` (V2) injects user message | inline in `superpowers.js` | `tests/opencode/` | `opencode.json` `plugin` (V1) / `plugins` (V2) git URL |
-| pi | `.pi/extensions/superpowers.ts` | in-process: `resources_discover` registers skills; `context` event injects user message; lifecycle-flag + compaction-aware | `piToolMapping()` inline **and** `references/pi-tools.md` | `tests/pi/` | repo-root `package.json` fields |
+| pi | `.pi/extensions/superpowers.ts` | in-process: `resources_discover` registers skills; `before_agent_start` returns a persisted `custom_message`; `context` is a compaction safety net | `piToolMapping()` inline **and** `references/pi-tools.md` | `tests/pi/` | repo-root `package.json` fields |
 
 ## Appendix B — Gotchas that have bitten porters
 
@@ -819,9 +829,16 @@ Use this as the live index; when in doubt, read the files, not this table.
   (Cursor). Use what your harness exports; the script re-derives the root itself.
 - **System-message injection.** Shape B injects a *user* message on purpose
   (#750, #894). Don't "fix" it to a system message.
-- **Per-step vs per-turn callbacks.** OpenCode fires every step (per-call dedup
-  guard); pi fires per turn (lifecycle flag + `agent_end` reset). Copying one
-  harness's dedup strategy onto the other's callback frequency breaks injection.
+- **Per-step vs per-run callbacks.** OpenCode fires every step (per-call dedup
+  guard); pi's `before_agent_start` fires once per run and persists its entry.
+  Copying one harness's dedup strategy onto the other's callback frequency
+  breaks injection. Never gate re-injection on a flag that a per-turn event
+  clears: pi's `agent_end` fires at the end of every turn, not the session, so
+  clearing an inject flag there drops the bootstrap from turn two onward.
+- **Request-time transforms do not persist.** A `context` transform is restored
+  after the request, so it never reaches the session file. Any dedup guard that
+  reads history will not find it on the next turn. Persist instead of transform
+  when the harness allows it.
 - **Message-object shape is per-harness.** Shape B. pi and OpenCode use
   incompatible shapes; discover yours, don't copy a reference's object literal.
 - **Hunting for a skill-registration API that doesn't exist.** A harness with no

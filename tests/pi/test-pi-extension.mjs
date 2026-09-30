@@ -11,6 +11,9 @@ const packageJsonPath = resolve(repoRoot, 'package.json');
 const extensionPath = resolve(repoRoot, '.pi/extensions/superpowers.ts');
 const piToolsPath = resolve(repoRoot, 'skills/using-superpowers/references/pi-tools.md');
 
+const BOOTSTRAP_CUSTOM_TYPE = 'superpowers-bootstrap';
+const BOOTSTRAP_MARKER = 'using-superpowers bootstrap for pi';
+
 async function readPackageJson() {
   return JSON.parse(await readFile(packageJsonPath, 'utf8'));
 }
@@ -42,6 +45,19 @@ function textOf(message) {
     .join('\n');
 }
 
+/**
+ * A pi context stub whose projection is the source of truth for dedup.
+ * `entries` stands in for `sessionManager.buildContextEntries()`.
+ */
+function makeCtx(entries = []) {
+  return { sessionManager: { buildContextEntries: () => entries } };
+}
+
+/** Shape of the persisted entry `before_agent_start` produces, as pi stores it. */
+function persistedEntry() {
+  return { type: 'custom_message', customType: BOOTSTRAP_CUSTOM_TYPE };
+}
+
 test('package.json declares a pi package with skills and extension resources', async () => {
   const pkg = await readPackageJson();
 
@@ -51,12 +67,15 @@ test('package.json declares a pi package with skills and extension resources', a
   assert.deepEqual(pkg.pi.extensions, ['./.pi/extensions/superpowers.ts']);
 });
 
-test('extension registers lifecycle hooks without pre-compaction injection', async () => {
+test('extension registers persistence and safety-net hooks', async () => {
   const { handlers } = await loadExtension();
 
-  for (const event of ['resources_discover', 'session_start', 'session_compact', 'context', 'agent_end']) {
+  for (const event of ['resources_discover', 'before_agent_start', 'context']) {
     assert.equal((handlers.get(event) ?? []).length, 1, `missing ${event} handler`);
   }
+  // Regression guard: a per-turn `agent_end` reset is what made the bootstrap
+  // single-turn. Its absence is now part of the contract.
+  assert.equal((handlers.get('agent_end') ?? []).length, 0, 'agent_end must not reset injection');
   assert.equal((handlers.get('session_before_compact') ?? []).length, 0);
 });
 
@@ -64,58 +83,86 @@ test('resources_discover contributes the bundled skills directory', async () => 
   const { handlers } = await loadExtension();
   const discover = firstHandler(handlers, 'resources_discover');
 
-  const result = await discover({ type: 'resources_discover', cwd: repoRoot, reason: 'startup' }, {});
+  const result = await discover({ type: 'resources_discover', cwd: repoRoot, reason: 'startup' }, makeCtx());
 
   assert.deepEqual(result.skillPaths, [resolve(repoRoot, 'skills')]);
 });
 
-test('startup context injects the bootstrap as one user message until agent_end', async () => {
+test('before_agent_start persists the bootstrap when the projection lacks it', async () => {
   const { handlers } = await loadExtension();
-  const sessionStart = firstHandler(handlers, 'session_start');
-  const context = firstHandler(handlers, 'context');
-  const agentEnd = firstHandler(handlers, 'agent_end');
+  const beforeAgentStart = firstHandler(handlers, 'before_agent_start');
 
-  await sessionStart({ type: 'session_start', reason: 'startup' }, {});
+  const result = await beforeAgentStart(
+    { type: 'before_agent_start', prompt: 'Let us make a react todo list', systemPrompt: '' },
+    makeCtx([]),
+  );
 
-  const originalMessages = [
-    { role: 'user', content: [{ type: 'text', text: 'Let us make a react todo list' }], timestamp: 1 },
-  ];
-  const result = await context({ type: 'context', messages: originalMessages }, {});
-
-  assert.equal(result.messages.length, 2);
-  assert.equal(result.messages[0].role, 'user');
-  assert.match(textOf(result.messages[0]), /You have superpowers/);
-  assert.match(textOf(result.messages[0]), /Pi tool mapping/);
-  assert.equal(result.messages[1], originalMessages[0]);
-
-  const repeatedProviderRequest = await context({ type: 'context', messages: originalMessages }, {});
-  assert.equal(repeatedProviderRequest.messages.length, 2);
-  assert.match(textOf(repeatedProviderRequest.messages[0]), /You have superpowers/);
-
-  const alreadyInjected = await context({ type: 'context', messages: result.messages }, {});
-  assert.equal(alreadyInjected, undefined, 'bootstrap should not duplicate when already present');
-
-  await agentEnd({ type: 'agent_end', messages: [] }, {});
-  const afterEnd = await context({ type: 'context', messages: originalMessages }, {});
-  assert.equal(afterEnd, undefined, 'startup bootstrap should clear after agent_end');
+  assert.ok(result, 'handler should return a message');
+  assert.equal(result.message.customType, BOOTSTRAP_CUSTOM_TYPE);
+  assert.equal(result.message.display, false, 'bootstrap should not render in the TUI');
+  assert.match(result.message.content, /You have superpowers/);
+  assert.match(result.message.content, /Pi tool mapping/);
 });
 
-test('session_compact injects bootstrap after compaction summaries, not before compaction', async () => {
+test('before_agent_start does not re-inject when the projection already has the entry', async () => {
   const { handlers } = await loadExtension();
-  const sessionCompact = firstHandler(handlers, 'session_compact');
+  const beforeAgentStart = firstHandler(handlers, 'before_agent_start');
+
+  const result = await beforeAgentStart(
+    { type: 'before_agent_start', prompt: 'second turn', systemPrompt: '' },
+    makeCtx([persistedEntry()]),
+  );
+
+  assert.equal(result, undefined, 'persisted entry should satisfy the dedup guard');
+});
+
+test('bootstrap survives across turns because it is persisted, not request-scoped', async () => {
+  const { handlers } = await loadExtension();
+  const beforeAgentStart = firstHandler(handlers, 'before_agent_start');
   const context = firstHandler(handlers, 'context');
 
-  await sessionCompact({ type: 'session_compact', compactionEntry: {}, fromExtension: false }, {});
+  // Turn 1: empty projection -> inject and persist.
+  const projection = [];
+  const turn1 = await beforeAgentStart(
+    { type: 'before_agent_start', prompt: 'first', systemPrompt: '' },
+    makeCtx(projection),
+  );
+  assert.ok(turn1, 'turn 1 should inject');
+  // pi appends the returned message to the session; the projection now carries it.
+  projection.push(persistedEntry());
 
+  // Turn 2: the entry is still in the projection, so the model still sees the
+  // bootstrap and no duplicate is injected. This is the case that previously
+  // regressed to MISSING, because a `context` transform never reached the session.
+  const turn2 = await beforeAgentStart(
+    { type: 'before_agent_start', prompt: 'second', systemPrompt: '' },
+    makeCtx(projection),
+  );
+  assert.equal(turn2, undefined, 'turn 2 must not duplicate the persisted entry');
+
+  const afterTurn2 = await context(
+    { type: 'context', messages: [{ role: 'custom', customType: BOOTSTRAP_CUSTOM_TYPE, content: 'x' }] },
+    makeCtx(projection),
+  );
+  assert.equal(afterTurn2, undefined, 'safety net must not duplicate either');
+});
+
+test('safety net re-injects after compaction dropped the persisted entry', async () => {
+  const { handlers } = await loadExtension();
+  const context = firstHandler(handlers, 'context');
+
+  // Compaction summarized the bootstrap entry away, mid-run: no `before_agent_start`
+  // is due, so the request-time safety net is the only thing that can cover it.
   const summary = { role: 'compactionSummary', summary: 'Prior work summary', tokensBefore: 123, timestamp: 1 };
   const user = { role: 'user', content: [{ type: 'text', text: 'Continue' }], timestamp: 2 };
-  const result = await context({ type: 'context', messages: [summary, user] }, {});
+  const result = await context({ type: 'context', messages: [summary, user] }, makeCtx([]));
 
+  assert.ok(result, 'safety net should inject after compaction');
   assert.equal(result.messages.length, 3);
   assert.equal(result.messages[0], summary);
   assert.equal(result.messages[1].role, 'user');
   assert.match(textOf(result.messages[1]), /You have superpowers/);
-  assert.equal(result.messages[2], user);
+  assert.equal(result.messages[2], user, 'injection belongs after the summary, before real history');
 });
 
 test('pi tools reference documents pi-specific mappings', async () => {
