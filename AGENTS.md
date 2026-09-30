@@ -1,5 +1,19 @@
 # Superpowers — Contributor Guidelines
 
+## Local patch: this is a fork
+
+This repository is a fork of [obra/superpowers](https://github.com/obra/superpowers) that carries one local patch. Everything below this section is upstream's contribution process, written for pull requests against the upstream project — it applies to work you intend to send upstream, not to the patch described here.
+
+| File | Change |
+| --- | --- |
+| `skills/subagent-driven-development/SKILL.md` | The wait paragraph is platform-conditional: the bounded-stretch polling instruction applies only to harnesses with no native wake (Claude Code, Codex); harnesses that wake the parent session on child completion (Pi) launch and end the turn instead |
+
+Rules for any agent working in this repo:
+
+1. **Do not propose this patch upstream.** It encodes one harness's mechanism. Upstream accepts changes that work across every supported coding agent, and a Pi-specific branch is not that. Fixing the wording so it reads as a platform distinction makes it defensible, not wanted.
+2. **Keep it a single-hunk patch, not a rewrite.** The patch touches the wait paragraph and nothing else. Edit only that paragraph, so upstream's changes elsewhere keep merging cleanly. A fork that rewrites surrounding prose turns every future upgrade into a manual merge.
+3. **Re-verify the paragraph after every upstream merge.** After `git pull`, confirm the wait contract is still platform-conditional — `grep -n "Check your platform before you choose a wait" skills/subagent-driven-development/SKILL.md`. A clean merge is not proof: the paragraph can survive intact while the instruction it guards drifts out of date.
+
 ## If You Are an AI Agent
 
 Stop. Read this section before doing anything.

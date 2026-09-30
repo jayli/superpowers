@@ -249,6 +249,38 @@ pi -e /path/to/superpowers
 
 The Pi package loads the Superpowers skills and a small extension that injects the `using-superpowers` bootstrap at session startup and again after compaction. Pi has native skills, so no compatibility `Skill` tool is required. Subagent and task-list tools remain optional Pi companion packages.
 
+#### Global install from a fork
+
+To make the skills available to every project without registering a package, clone this repository and symlink its `skills/` directory into Pi's cross-runtime skills root:
+
+```bash
+mkdir -p ~/.agents/skills
+git clone git@github.com:jayli/superpowers.git ~/.agents/superpowers
+ln -sfn ~/.agents/superpowers/skills ~/.agents/skills/superpowers
+```
+
+Pi discovers skills by walking `~/.agents/skills/` recursively, so the nested `superpowers/<skill>/SKILL.md` layout resolves without flattening. This is the same clone-plus-symlink shape the Codex install used before `~/.codex/skills/` was deprecated.
+
+The trade-off: the symlink serves skill discovery only. It does **not** load `.pi/extensions/superpowers.ts`, so there is no `EXTREMELY_IMPORTANT` bootstrap injection at session start or after compaction — the agent finds the skills, but nothing tells it to check for them. Use `pi install` above when you want the bootstrap; use this when your instruction files already carry the trigger rules.
+
+#### Pi wait contract (local patch)
+
+This fork carries one patch to upstream: `skills/subagent-driven-development/SKILL.md` replaces the unconditional "wait in bounded stretches" paragraph with a platform-conditional one.
+
+Upstream's wording assumes every harness lacks native wake, so it tells the controller to poll a wait interface every five to ten minutes. Pi's subagent extension wakes the parent session when a child completes, so that instruction converts a parallel workflow into a serial one — a measured session spent 5.73 of 8.8 hours blocked in `bg_wait`, 3.0 hours of it on wait windows that expired with nothing to collect.
+
+The patch keeps the bounded-stretch instruction for platforms that do need it (Claude Code, Codex) and adds a branch for platforms with native wake: launch the child, end the turn, let the completion wake you. It is a committed local change, not a rewrite — one hunk, 17 insertions against 6 deletions.
+
+#### Upgrading a fork install
+
+```bash
+git -C ~/.agents/superpowers pull
+```
+
+The symlink needs no maintenance: it points at the directory, so new commits are live immediately.
+
+`git pull` stops with a conflict when upstream rewrites the same paragraph the patch touches. That means upstream changed the wait contract: read its new wording, then re-apply the `**Check your platform before you choose a wait.**` block on top of it and keep the rest of upstream's change. Everywhere else the patch is transparent and pulls cleanly.
+
 ### Qwen Code
 
 Qwen Code installs plugins from Claude Code marketplaces directly.
