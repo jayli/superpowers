@@ -251,17 +251,24 @@ The Pi package loads the Superpowers skills and a small extension that injects t
 
 #### Global install from a fork
 
-To make the skills available to every project without registering a package, clone this repository and symlink its `skills/` directory into Pi's cross-runtime skills root:
+To make the skills available to every project without registering a package, symlink this repository's `skills/` directory into Pi's cross-runtime skills root:
 
 ```bash
 mkdir -p ~/.agents/skills
-git clone git@github.com:jayli/superpowers.git ~/.agents/superpowers
-ln -sfn ~/.agents/superpowers/skills ~/.agents/skills/superpowers
+ln -s ~/jaylli/superpowers/skills ~/.agents/skills/superpowers
 ```
 
-Pi discovers skills by walking `~/.agents/skills/` recursively, so the nested `superpowers/<skill>/SKILL.md` layout resolves without flattening. This is the same clone-plus-symlink shape the Codex install used before `~/.codex/skills/` was deprecated.
+Swap in wherever your checkout actually lives. If you don't have one yet, `git clone git@github.com:jayli/superpowers.git <wherever you keep repositories>` first, then point the symlink at its `skills/` directory.
+
+Use `ln -s`, not `ln -sf`. That directory already contains your own skills, and `-f` works by unlinking the existing path — the same operation the sandbox blocks, so it fails with `Operation not permitted` instead of re-pointing the link. To change where an existing `superpowers` link points, remove it in your own terminal first (`rm ~/.agents/skills/superpowers`), then re-create it.
+
+**Do not clone into `~/.agents/` or directly into `$HOME`.** Pi's sandbox refuses to unlink outside the project directory, temp roots, and regenerable caches, and git writes every ref through a lock file it renames into place. A clone there dies partway through writing `.git/config`, leaving a `.git/` directory with no checkout. To reproduce it from your own terminal: `git clone git@github.com:jayli/superpowers.git ~/.agents/superpowers` → `fatal: could not set 'core.repositoryformatversion' to '0'`. Your shell is unaffected by the sandbox, so this only breaks when an agent runs the command — which is exactly what agents reading this file will do.
+
+Pi discovers skills by walking `~/.agents/skills/` recursively, so the nested `superpowers/<skill>/SKILL.md` layout resolves without flattening. Only the symlink itself needs to live under `~/.agents/`. This is the same clone-plus-symlink shape the Codex install used before `~/.codex/skills/` was deprecated.
 
 The trade-off: the symlink serves skill discovery only. It does **not** load `.pi/extensions/superpowers.ts`, so there is no `EXTREMELY_IMPORTANT` bootstrap injection at session start or after compaction — the agent finds the skills, but nothing tells it to check for them. Use `pi install` above when you want the bootstrap; use this when your instruction files already carry the trigger rules.
+
+Pointing the symlink at your working checkout also means uncommitted edits under `skills/` are live in the next Pi session. That is convenient while iterating on a skill and surprising if you forget: `git stash` to get the committed state back.
 
 #### Pi wait contract (local patch)
 
@@ -273,11 +280,13 @@ The patch keeps the bounded-stretch instruction for platforms that do need it (C
 
 #### Upgrading a fork install
 
+Pull the checkout the symlink points at:
+
 ```bash
-git -C ~/.agents/superpowers pull
+git -C ~/jaylli/superpowers pull
 ```
 
-The symlink needs no maintenance: it points at the directory, so new commits are live immediately.
+The symlink needs no maintenance: it points at the directory, so new commits are live in the next Pi session.
 
 `git pull` stops with a conflict when upstream rewrites the same paragraph the patch touches. That means upstream changed the wait contract: read its new wording, then re-apply the `**Check your platform before you choose a wait.**` block on top of it and keep the rest of upstream's change. Everywhere else the patch is transparent and pulls cleanly.
 
