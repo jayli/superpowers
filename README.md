@@ -1,5 +1,9 @@
 # Superpowers
 
+> **This fork is built for one environment: [jayli/pi-coder](https://github.com/jayli/pi-coder).**
+>
+> The Pi install, the tool mappings, and the tests in this repository assume that package is loaded. The section [Pairing with pi-coder](#pairing-with-pi-coder) explains exactly which parts depend on it and what breaks without it. The skills themselves are upstream's and stay harness-generic — it is this fork's Pi layer that is not.
+
 Superpowers is a complete software development methodology for your coding agents, built on top of a set of composable skills and some initial instructions that make sure your agent uses them.
 
 ## Table of Contents
@@ -20,6 +24,7 @@ Superpowers is a complete software development methodology for your coding agent
   - [Kimi Code](#kimi-code)
   - [OpenCode](#opencode)
   - [Pi](#pi)
+  - [Pairing with pi-coder](#pairing-with-pi-coder)
   - [Qwen Code](#qwen-code)
   - [Hermes Agent](#hermes-agent)
   - [Muse](#muse)
@@ -316,6 +321,39 @@ git -C ~/jaylli/superpowers pull
 The symlink needs no maintenance: it points at the directory, so new commits are live in the next Pi session.
 
 `git pull` stops with a conflict when upstream rewrites the same paragraph the patch touches. That means upstream changed the wait contract: read its new wording, then re-apply the `**Check your platform before you choose a wait.**` block on top of it and keep the rest of upstream's change. Everywhere else the patch is transparent and pulls cleanly.
+
+### Pairing with pi-coder
+
+This fork is the skills half of one Pi setup: [jayli/pi-coder](https://github.com/jayli/pi-coder) is the other half. Load both, or several things here resolve to nothing.
+
+```bash
+pi install npm:@bachi/pi-coder                        # 30 extensions, 3 themes, the config files
+pi install git:github.com/jayli/superpowers            # these skills + the bootstrap extension
+pi install npm:pi-subagents                            # the subagent tool the dispatch mappings assume
+pi install npm:pi-web-access                           # pi-coder lists this as its second companion
+```
+
+**Why the coupling is real.** The mapping in [`skills/using-superpowers/references/pi-tools.md`](skills/using-superpowers/references/pi-tools.md) sends every skill action to a tool, and three of those tools are pi-coder's, not Pi's:
+
+| Skill action | Resolved tool | Provided by |
+| --- | --- | --- |
+| "create a todo", "mark complete" | `task_set` / `task_update` / `task_get` | pi-coder `simple-task` |
+| "ask one question at a time" | `ask_user_question` | pi-coder `ask-user-question` |
+| "enter plan mode" | `enter_plan_mode` / `exit_plan_mode` | pi-coder `plan-mode` |
+
+Without pi-coder, `brainstorming`'s one-question-at-a-time and the plan-mode section of that mapping have no tool behind them, and every skill that says "create a todo per task" has only the plan-file fallback.
+
+**pi-coder points back at these skills.** Its `plan-mode` extension scans the session for a `read` of a path containing `/brainstorming/` and skips `enter_plan_mode` when it finds one — that is the either-or gate described in the mapping, implemented in the harness rather than in the skill. Its `verify-loop` extension cites `verification-before-completion` by path as the discipline it turns from prompt text into a code gate. And the `## Skills` section of pi-coder's [`config/AGENTS.md`](https://github.com/jayli/pi-coder/blob/main/config/AGENTS.md) carries the trigger rules that the bootstrap would otherwise supply.
+
+So the dependency runs both directions. Install pi-coder without these skills and those three mechanisms keep working but lose the text they were built around — the either-or gate never fires because nothing reads `brainstorming`, `verify-loop`'s rationale points at a missing file, and the trigger rules reference a skill catalog that is not there. Install these skills without pi-coder and the mapping above resolves three skill actions to no tool.
+
+**Skill discovery works either way.** pi-coder's design notes assume the symlink shape (skills found as files under `~/.agents/skills`), but the mapping this fork ships is the package shape. Both are fine — Pi discovers skills from a package's `pi.skills` manifest just as well as from a directory on disk, and the bootstrap extension is the reason this fork prefers the package.
+
+Self-contained parts and known caveats:
+
+- The **skills** are upstream's, unchanged. They run on any harness; only this fork's Pi layer is pi-coder-specific.
+- The **library-precedent exceptions** are inherited from upstream and do not apply here. `brainstorming` offers an `elements-of-style:writing-clearly-and-concisely` skill when writing the spec, and `writing-plans` hands the plan to `superpowers:subagent-driven-development` or `superpowers:executing-plans`. pi-coder ships no `elements-of-style` equivalent, and the upstream `requesting-code-review` mapping of a subagent dispatch onto a `general-purpose` agent resolves to a real agent name only through `pi-tools.md` — bare, it fails with `Unknown agent`.
+- **The one local patch** is the platform-conditional wait contract in `subagent-driven-development`, and it is written for Pi against `pi-subagents`' native completion wake. On harnesses without that wake path, follow the skill's other branch.
 
 ### Qwen Code
 
