@@ -251,7 +251,26 @@ The Pi package loads the Superpowers skills and a small extension that persists 
 
 #### Global install from a fork
 
-To make the skills available to every project without registering a package, symlink this repository's `skills/` directory into Pi's cross-runtime skills root:
+Use the Pi package — `pi install git:github.com/jayli/superpowers` — as decided on 2026-09-30. It is a superset of the symlink method: the package turns on skill discovery through `pi: { "skills": ["./skills"] }` in `package.json` *and* loads `.pi/extensions/superpowers.ts`, which no other install shape can do. `pi update --extensions` then follows this fork's `origin/main`, and Pi identifies a git package by repository URL, so a personal entry and a project entry never load the same package twice.
+
+```bash
+pi install git:github.com/jayli/superpowers
+pi update --extensions   # later upgrades
+```
+
+The checkout that serves the install lives at `~/.pi/agent/git/github.com/jayli/superpowers` — a separate copy from whatever working tree you edit. Skill edits are global only after you push them and run `pi update --extensions`.
+
+For a change you want to try immediately, load the working tree as a temporary package instead. `-e` takes a local path, applies the package's manifest, and loads the extension too, so skills and the bootstrap are both live without touching global settings and without a second copy:
+
+```bash
+pi -e /path/to/superpowers
+```
+
+##### The symlink method, and why we do not use it
+
+The symlink serves skill discovery only. It does **not** load `.pi/extensions/superpowers.ts`, so there is no `EXTREMELY_IMPORTANT` bootstrap injection at session start or after compaction — the agent finds the skills, but nothing tells it to check for them. Its one advantage, pointing at a working checkout so uncommitted edits are live, is already covered by `pi -e` above.
+
+The mechanics, kept here for anyone who still wants the shape:
 
 ```bash
 mkdir -p ~/.agents/skills
@@ -266,9 +285,11 @@ Use `ln -s`, not `ln -sf`. That directory already contains your own skills, and 
 
 Pi discovers skills by walking `~/.agents/skills/` recursively, so the nested `superpowers/<skill>/SKILL.md` layout resolves without flattening. Only the symlink itself needs to live under `~/.agents/`. This is the same clone-plus-symlink shape the Codex install used before `~/.codex/skills/` was deprecated.
 
-The trade-off: the symlink serves skill discovery only. It does **not** load `.pi/extensions/superpowers.ts`, so there is no `EXTREMELY_IMPORTANT` bootstrap injection at session start or after compaction — the agent finds the skills, but nothing tells it to check for them. Use `pi install` above when you want the bootstrap; use this when your instruction files already carry the trigger rules.
+Do not run the package install and the symlink at the same time. Pi keeps the first discovered skill when two skills share a name and warns about the collision, so two sources leave the effective copy down to load order. Remove the package before adding the symlink:
 
-Pointing the symlink at your working checkout also means uncommitted edits under `skills/` are live in the next Pi session. That is convenient while iterating on a skill and surprising if you forget: `git stash` to get the committed state back.
+```bash
+pi remove git:github.com/jayli/superpowers
+```
 
 #### Pi wait contract (local patch)
 
@@ -280,7 +301,13 @@ The patch keeps the bounded-stretch instruction for platforms that do need it (C
 
 #### Upgrading a fork install
 
-Pull the checkout the symlink points at:
+For the package install, reconcile the checkout Pi manages:
+
+```bash
+pi update --extensions
+```
+
+For the symlink install, pull the checkout the symlink points at:
 
 ```bash
 git -C ~/jaylli/superpowers pull

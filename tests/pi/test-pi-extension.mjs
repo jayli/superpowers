@@ -102,6 +102,21 @@ test('before_agent_start persists the bootstrap when the projection lacks it', a
   assert.equal(result.message.display, false, 'bootstrap should not render in the TUI');
   assert.match(result.message.content, /You have superpowers/);
   assert.match(result.message.content, /Pi tool mapping/);
+
+  // The injected mapping is always present, unlike the reference file the model
+  // may or may not read. The two failure modes that leave a dispatch with no
+  // reachable tool belong here: an inactive `subagent` tool, and a template
+  // agent name (`general-purpose`) that pi does not have.
+  assert.match(
+    result.message.content,
+    /subagents_enable/,
+    'injected mapping must name the step that activates the subagent tool',
+  );
+  assert.match(
+    result.message.content,
+    /general-purpose/,
+    'injected mapping must warn that the template agent name is not a pi agent',
+  );
 });
 
 test('before_agent_start does not re-inject when the projection already has the entry', async () => {
@@ -180,5 +195,85 @@ test('pi tools reference documents pi-specific mappings', async () => {
   assert.ok(
     rows.some((row) => /todo|task/i.test(row)),
     'mapping table documents task tracking',
+  );
+});
+
+// Four Pi-specific gaps that make a dispatched workflow fail outright rather
+// than degrade. Each one is silent: the model reads a skill that says "dispatch
+// a subagent", reaches for a tool or a name that Pi does not have, and either
+// stalls or reports success without ever running the child.
+test('pi tools reference maps the generic dispatch template to a real pi agent', async () => {
+  const text = await readFile(piToolsPath, 'utf8');
+
+  // Skills write `Subagent (general-purpose):` — a Claude Code agent name. pi's
+  // builtins are scout/worker/reviewer/oracle/delegate/etc; a literal
+  // `general-purpose` fails with "Unknown agent". The reference must name the
+  // mapping AND state the real call shape, since only `model` survives as a
+  // field and the `prompt` body has to become the `task` string.
+  assert.match(text, /general-purpose/, 'reference must name the template name it maps away from');
+  assert.ok(
+    /\bworker\b/.test(text),
+    'reference must name at least one real pi agent for implementation work',
+  );
+  assert.ok(
+    /\breviewer\b/.test(text),
+    'reference must name at least one real pi agent for review work',
+  );
+  assert.match(
+    text,
+    /`?agent`?\s*\+\s*`?task`?|\{ ?agent, task ?\}/i,
+    'reference must state the real pi call shape (agent + task)',
+  );
+});
+
+test('pi tools reference tells the model to enable the subagent tool first', async () => {
+  const text = await readFile(piToolsPath, 'utf8');
+
+  // On pi >= 0.86.1 `subagent` starts inactive; `subagents_enable` must be
+  // called before any dispatch. A skill that says "dispatch a subagent" without
+  // this step has no reachable tool, and the failure mode is the agent quietly
+  // doing the work itself instead of reporting the missing capability.
+  assert.match(
+    text,
+    /subagents_enable/,
+    'reference must name the enable step that activates the subagent tool',
+  );
+});
+
+test('pi tools reference warns that a model scope can reject explicit models', async () => {
+  const text = await readFile(piToolsPath, 'utf8');
+
+  // subagent-driven-development instructs the controller to pick a model per
+  // role and pass it explicitly. Under `subagents.modelScope: { enforce: true,
+  // strict: true }` an explicit out-of-scope model is a hard error that aborts
+  // the run, so the skill that follows its own Model Selection section most
+  // faithfully is the one most likely to fail. The reference must surface the
+  // interaction and name the setting so the reader can check it.
+  assert.match(
+    text,
+    /modelScope/,
+    'reference must name the setting that can reject an explicit model',
+  );
+  assert.ok(
+    /explicit/i.test(text),
+    'reference must distinguish explicit models from inherited ones',
+  );
+});
+
+// Two facts verified against the installed pi-subagents package (0.73.1), not
+// read off prose: `model` really is a subagent field (only `prompt`/`description`
+// are template-only), and every builtin agent ships `inheritSkills: false`.
+test('pi tools reference is accurate about fields and child capabilities', async () => {
+  const text = await readFile(piToolsPath, 'utf8');
+
+  assert.match(
+    text,
+    /`model` carries over as written/,
+    'reference must not claim model is not a subagent field — it is one',
+  );
+  assert.match(
+    text,
+    /inheritSkills/,
+    'reference must record that dispatched children do not inherit skills',
   );
 });

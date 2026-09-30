@@ -102,6 +102,12 @@ Pi's built-in coding tools are lowercase: \`read\`, \`write\`, \`edit\`, \`bash\
 
 Pi does not ship a standard subagent tool. If a subagent tool such as \`subagent\` from \`pi-subagents\` is available, use it for Superpowers subagent workflows. If no subagent tool is available, do the work in this session or explain the missing capability instead of inventing \`Task\` calls.
 
+On Pi 0.86.1 and later the \`subagent\` tool starts inactive: call \`subagents_enable\` before the first dispatch, and the tool becomes available on the next model request. Some provider bridges fix the tool list for a whole prompt, so there it appears only after the next *user* prompt — do not retry it in the same turn. Do not silently do the work yourself because the tool was not there yet.
+
+Skills write dispatches as \`Subagent (general-purpose):\` with \`description\`, \`model\`, and \`prompt\` keys. That is prose, not a Pi call. \`general-purpose\` is a Claude Code agent name and Pi has no agent by that name — passing it fails with \`Unknown agent\`. Translate by intent to a real agent (\`worker\` to implement, \`reviewer\` to review, \`scout\` for recon, \`researcher\` for outside research, \`oracle\` for a second opinion, \`delegate\` for a parent-like child), and note the shape: \`prompt\` contents become the \`task\` string and \`description\` is not a field — only \`model\` carries over as written. Check \`subagent({ action: "list" })\` for the names actually installed.
+
+When a skill tells you to choose a model per role and pass it explicitly, check \`subagents.modelScope\` in the user and project settings first. With \`enforce: true\` an out-of-scope *explicit* model is a hard error that aborts the run, and \`strict: true\` makes inherited models hard errors too; \`allow: ["inherit"]\` permits only the parent session's current model. If your chosen model is outside the list, omit the model and let the child inherit, or ask your human partner to widen the scope — never route around it yourself. Scope rejects or warns; it never selects a model.
+
 Pi does not ship a standard task-list tool. If an installed todo/task tool is available, use it. Otherwise track work in plan files or a repo-local \`TODO.md\` when task tracking is needed. Treat older \`TodoWrite\` references as this task-tracking action.`;
 }
 
