@@ -296,13 +296,23 @@ Do not run the package install and the symlink at the same time. Pi keeps the fi
 pi remove git:github.com/jayli/superpowers
 ```
 
-#### Pi wait contract (local patch)
+#### Local patches
 
-This fork carries one patch to upstream: `skills/subagent-driven-development/SKILL.md` replaces the unconditional "wait in bounded stretches" paragraph with a platform-conditional one.
+This fork carries two patches to upstream.
+
+##### Pi wait contract
+
+The first is `skills/subagent-driven-development/SKILL.md`, which replaces the unconditional "wait in bounded stretches" paragraph with a platform-conditional one.
 
 Upstream's wording assumes every harness lacks native wake, so it tells the controller to poll a wait interface every five to ten minutes. Pi's subagent extension wakes the parent session when a child completes, so that instruction converts a parallel workflow into a serial one — a measured session spent 5.73 of 8.8 hours blocked in `bg_wait`, 3.0 hours of it on wait windows that expired with nothing to collect.
 
 The patch keeps the bounded-stretch instruction for platforms that do need it (Claude Code, Codex) and adds a branch for platforms with native wake: launch the child, end the turn, let the completion wake you. It is a committed local change, not a rewrite — one hunk, 17 insertions against 6 deletions.
+
+##### Baseline source
+
+The second patch is `skills/writing-skills/SKILL.md`. Upstream's Iron Law — no skill without a failing test first, edits included — was read as requiring a fresh subagent scenario every time a skill is edited, and the checklist's "Run scenarios WITHOUT skill" told you exactly how. In a session where the agent added one recipe to an existing skill, that meant dispatching two scouts to re-derive a failure the session had already produced, waiting 11 minutes on them, and never reading their output — the transcript of the original failure was already the baseline. The patch says what counts as the test (a written record of the failure, however obtained) and gives RED two sources: quote this session's own record when it exists, stage a scenario only when none does.
+
+It is a three-region change in one file — the Iron Law text, the RED section, and one checklist entry — not a restructure of the skill.
 
 #### Upgrading a fork install
 

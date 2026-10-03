@@ -384,6 +384,8 @@ This applies to NEW skills AND EDITS to existing skills.
 Write skill before testing? Delete it. Start over.
 Edit skill without testing? Same violation.
 
+**What counts as the test.** RED is satisfied by a written record of the failure — the agent's wrong turns and exact wording, not a summary of them — however you obtained it. When you already have that record in hand, quoting it is the test; re-staging it is redundant work, not extra rigor.
+
 **No exceptions:**
 - Not for "simple additions"
 - Not for "just adding a section"
@@ -557,10 +559,12 @@ Follow the TDD cycle:
 
 ### RED: Write Failing Test (Baseline)
 
-Run pressure scenario with subagent WITHOUT the skill. Document exact behavior:
-- What choices did they make?
-- What rationalizations did they use (verbatim)?
-- Which pressures triggered violations?
+You need a written record of the failure this skill must prevent — what the agent did wrong, in its own words. Get it from wherever it already exists:
+
+- **The record already exists** — the task was attempted and went wrong, and its wrong turns are written down where you can quote them. Usual case when the edit documents work someone just did.
+- **No such record exists** — stage a scenario: run the task without the skill, watch the agent fail, write down what it chose and why.
+
+Either way, record: what choices did they make? What rationalizations did they use (verbatim)? Which pressures triggered violations?
 
 This is "watch the test fail" - you must see what agents naturally do before writing the skill.
 
@@ -632,7 +636,7 @@ Deploying untested skills = deploying untested code. It's a violation of quality
 
 **RED Phase - Write Failing Test:**
 - [ ] Create pressure scenarios (3+ combined pressures for discipline skills)
-- [ ] Run scenarios WITHOUT skill - document baseline behavior verbatim
+- [ ] Establish the failing baseline - quote an existing written record of the failure if you have one, otherwise run scenarios WITHOUT the skill and record the behavior verbatim
 - [ ] Identify patterns in rationalizations/failures
 
 **GREEN Phase - Write Minimal Skill:**
