@@ -386,6 +386,8 @@ Edit skill without testing? Same violation.
 
 **What counts as the test.** RED is satisfied by a written record of the failure — the agent's wrong turns and exact wording, not a summary of them — however you obtained it. When you already have that record in hand, quoting it is the test; re-staging it is redundant work, not extra rigor.
 
+**Scale the verification to the failure.** RED/GREEN earns its cost when the thing under test is a skill's **prose** — whether wording actually changes what an agent does under pressure. It earns nothing when the failure is a fact you can check locally: a wrong value, a broken reference, a missing field. Those get a checker you run yourself — seconds, not dispatches. Confirm the skill's *content* is right by running it once, and spend scenario dispatches only on the *wording* question that a checker cannot answer ("does this phrasing change behavior?"). Running the full cycle against a fact-shaped failure buys no signal and costs a session.
+
 **No exceptions:**
 - Not for "simple additions"
 - Not for "just adding a section"
@@ -436,27 +438,25 @@ Different skill types need different test approaches:
 
 ### Reference Skills (documentation/APIs)
 
-**Examples:** API documentation, command references, library guides
+**Examples:** API documentation, command references, library guides, artifact generators ("given X, emit Y")
 
-**Test with:**
-- Retrieval scenarios: Can they find the right information?
-- Application scenarios: Can they use what they found correctly?
-- Gap testing: Are common use cases covered?
+These have no rule to violate and no rationalization to resist — the skill either contains the right facts and takes the right steps, or it does not. **Test content, not compliance:** run the skill's own procedure once against a real input and check the artifact. A generator skill's test is running the generator and validating the output; a checker you execute yourself beats any number of dispatches, because it returns a verdict instead of a transcript. Scenario pressure tests are the wrong instrument here and cost orders of magnitude more.
 
-**Success criteria:** Agent finds and correctly applies reference information
+**Success criteria:** Agent finds and correctly applies reference information; the produced artifact passes its own validation
 
 ## Common Rationalizations for Skipping Testing
 
 | Excuse | Reality |
 |--------|---------|
 | "Skill is obviously clear" | Clear to you ≠ clear to other agents. Test it. |
-| "It's just a reference" | References can have gaps, unclear sections. Test retrieval. |
-| "Testing is overkill" | Untested skills have issues. Always. 15 min testing saves hours. |
+| "It's just a reference" | References can have gaps, unclear sections. Run the procedure against a real input. |
+| "Testing is overkill" | Untested skills have issues. Always. Run the procedure — seconds, not hours. |
 | "I'll test if problems emerge" | Problems = agents can't use skill. Test BEFORE deploying. |
 | "Too tedious to test" | Testing is less tedious than debugging bad skill in production. |
 | "I'm confident it's good" | Overconfidence guarantees issues. Test anyway. |
-| "Academic review is enough" | Reading ≠ using. Test application scenarios. |
+| "Academic review is enough" | Reading ≠ using. For a reference skill, execute it. |
 | "No time to test" | Deploying untested skill wastes more time fixing it later. |
+| "The scenario run proved it" | A run proves the skill *works*, never that this edit was *needed*. If the new text does not reach the choice the baseline got wrong, the run is theater. |
 
 **All of these mean: Test before deploying. No exceptions.**
 
@@ -566,13 +566,17 @@ You need a written record of the failure this skill must prevent — what the ag
 
 Either way, record: what choices did they make? What rationalizations did they use (verbatim)? Which pressures triggered violations?
 
-This is "watch the test fail" - you must see what agents naturally do before writing the skill.
+**Match the baseline to the failure type.** A fact-shaped failure — wrong value, broken reference, missing step, output that does not validate — needs a **usable input plus a check**, not a dispatched scenario. Run the task once and see it fail against the check; that run is the baseline, and the fix is verified by re-running it. Staging an agent to discover that a table has a wrong hex value returns a transcript where one line of output would do.
 
 ### GREEN: Write Minimal Skill
 
 Write skill that addresses those specific rationalizations. Don't add extra content for hypothetical cases.
 
 Run same scenarios WITH skill. Agent should now comply.
+
+**Self-test the edit before dispatching anything.** Re-read the scenario the baseline failed and ask what in the new text changes its outcome. If the honest answer is "nothing" — the wording does not reach the choice that went wrong — the edit is not finished, and no run will tell you otherwise: a scenario proves a change works, never that it is needed.
+
+When the edit is verified by running a procedure or a checker, stopping there is completing GREEN, not skipping it.
 
 ### REFACTOR: Close Loopholes
 
@@ -590,7 +594,7 @@ Full pressure-scenario runs are the final gate, but they are slow and expensive 
 
 Micro-tests verify wording; they do not replace pressure scenarios for discipline skills.
 
-**Testing methodology:** See [testing-skills-with-subagents.md](testing-skills-with-subagents.md) for the complete testing methodology:
+**Testing methodology:** See [testing-skills-with-subagents.md](testing-skills-with-subagents.md) for the complete testing methodology — **load it when the skill under test enforces a rule** (discipline skills). Reference and technique skills verify by executing their procedure, per [Testing All Skill Types](#testing-all-skill-types):
 - How to write pressure scenarios
 - Pressure types (time, sunk cost, authority, exhaustion)
 - Plugging holes systematically
@@ -635,9 +639,9 @@ Deploying untested skills = deploying untested code. It's a violation of quality
 **IMPORTANT: Create a todo for EACH checklist item below.**
 
 **RED Phase - Write Failing Test:**
-- [ ] Create pressure scenarios (3+ combined pressures for discipline skills)
-- [ ] Establish the failing baseline - quote an existing written record of the failure if you have one, otherwise run scenarios WITHOUT the skill and record the behavior verbatim
+- [ ] Establish the failing baseline — quote an existing written record of the failure if you have one, otherwise run scenarios WITHOUT the skill and record the behavior verbatim
 - [ ] Identify patterns in rationalizations/failures
+- [ ] Create pressure scenarios (3+ combined pressures) **when the skill enforces a rule under pressure** — discipline skills only; reference and technique skills verify by running their procedure, not by staging scenarios
 
 **GREEN Phase - Write Minimal Skill:**
 - [ ] Name uses only letters, numbers, hyphens (no parentheses/special chars)
@@ -651,7 +655,7 @@ Deploying untested skills = deploying untested code. It's a violation of quality
 - [ ] For behavior-shaping guidance: wording micro-tested against a no-guidance control (5+ reps, every flagged match read manually) — N/A for pure reference skills
 - [ ] Code inline OR link to separate file
 - [ ] One excellent example (not multi-language)
-- [ ] Run scenarios WITH skill - verify agents now comply
+- [ ] Run scenarios WITH skill - verify agents now comply; for reference and technique skills, run the procedure itself and check the artifact
 
 **REFACTOR Phase - Close Loopholes:**
 - [ ] Identify NEW rationalizations from testing

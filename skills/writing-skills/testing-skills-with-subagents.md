@@ -1,6 +1,8 @@
 # Testing Skills With Subagents
 
-**Load this reference when:** creating or editing skills, before deployment, to verify they work under pressure and resist rationalization.
+**Load this reference when:** creating or editing skills that enforce a rule, before deployment, to verify they work under pressure and resist rationalization.
+
+**Not for every skill.** Reference and technique skills (API docs, artifact generators, command references) have no rule to violate — verify those by running their procedure and checking the artifact, per [Testing All Skill Types](SKILL.md#testing-all-skill-types). Pressure scenarios cost dispatches; spend them on skills whose value is compliance under pressure.
 
 ## Overview
 

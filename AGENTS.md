@@ -2,18 +2,19 @@
 
 ## Local patch: this is a fork
 
-This repository is a fork of [obra/superpowers](https://github.com/obra/superpowers) that carries two local patches. Everything below this section is upstream's contribution process, written for pull requests against the upstream project — it applies to work you intend to send upstream, not to the patches described here.
+This repository is a fork of [obra/superpowers](https://github.com/obra/superpowers) that carries three local patches. Everything below this section is upstream's contribution process, written for pull requests against the upstream project — it applies to work you intend to send upstream, not to the patches described here.
 
 | File | Change |
 | --- | --- |
 | `skills/subagent-driven-development/SKILL.md` | The wait paragraph is platform-conditional: the bounded-stretch polling instruction applies only to harnesses with no native wake (Claude Code, Codex); harnesses that wake the parent session on child completion (Pi) launch and end the turn instead |
 | `skills/writing-skills/SKILL.md` | The RED baseline is source-agnostic: a failure this session already produced and wrote down satisfies the requirement, so the edit does not default to staging a fresh subagent scenario |
+| `skills/writing-skills/SKILL.md`, `skills/writing-skills/testing-skills-with-subagents.md` | Verification scales to the failure: fact-shaped failures are checked by running the procedure locally, so the per-type table and checklist send only rule-enforcing skills to tension scenarios, and the subagent-testing reference declares itself for those skills alone |
 
 Rules for any agent working in this repo:
 
 1. **Do not propose these patches upstream.** They encode one harness's mechanism or one team's workflow. Upstream accepts changes that work across every supported coding agent, and a branch for one of them is not that. Fixing the wording so it reads as a platform distinction makes it defensible, not wanted.
-2. **Keep the patches surgical, not rewrites.** Each touches one region and nothing else — the SDD file its wait paragraph, the writing-skills file its Iron Law text, RED section and checklist entry — so upstream's changes elsewhere keep merging cleanly. A fork that rewrites surrounding prose turns every future upgrade into a manual merge.
-3. **Re-verify both patches after every upstream merge.** After `git pull`, confirm the wait contract is still platform-conditional — `grep -n "Check your platform before you choose a wait" skills/subagent-driven-development/SKILL.md` — and that the baseline text survived — `grep -n "What counts as the test" skills/writing-skills/SKILL.md`. A clean merge is not proof: the paragraphs can survive intact while the instruction they guard drifts out of date.
+2. **Keep the patches surgical, not rewrites.** Each touches one region and nothing else — the SDD file its wait paragraph, the writing-skills files their Iron Law text, per-type table, RED section and checklist entries — so upstream's changes elsewhere keep merging cleanly. A fork that rewrites surrounding prose turns every future upgrade into a manual merge.
+3. **Re-verify all patches after every upstream merge.** After `git pull`, confirm the wait contract is still platform-conditional — `grep -n "Check your platform before you choose a wait" skills/subagent-driven-development/SKILL.md` — and that the baseline text survived — `grep -n "What counts as the test" skills/writing-skills/SKILL.md`; likewise the failure-type routing — `grep -n "Scale the verification to the failure" skills/writing-skills/SKILL.md` and `grep -n "Not for every skill" skills/writing-skills/testing-skills-with-subagents.md`. A clean merge is not proof: the paragraphs can survive intact while the instruction they guard drifts out of date.
 4. **Global install stays a Pi package, not a symlink.** Decided 2026-09-30: `pi install git:github.com/jayli/superpowers`. The package loads the skills *and* `.pi/extensions/superpowers.ts`, which is the only thing that injects the `using-superpowers` bootstrap; the `~/.agents/skills/superpowers` symlink reaches skill discovery only, and its one edge — a working checkout that takes effect without a push — is already covered by `pi -e <checkout>`. README has the full comparison. Keep the two mutually exclusive: with both installed Pi keeps whichever skill it discovers first and warns about the collision.
 
 ## If You Are an AI Agent

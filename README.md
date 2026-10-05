@@ -298,7 +298,7 @@ pi remove git:github.com/jayli/superpowers
 
 #### Local patches
 
-This fork carries two patches to upstream.
+This fork carries three patches to upstream.
 
 ##### Pi wait contract
 
@@ -313,6 +313,12 @@ The patch keeps the bounded-stretch instruction for platforms that do need it (C
 The second patch is `skills/writing-skills/SKILL.md`. Upstream's Iron Law — no skill without a failing test first, edits included — was read as requiring a fresh subagent scenario every time a skill is edited, and the checklist's "Run scenarios WITHOUT skill" told you exactly how. In a session where the agent added one recipe to an existing skill, that meant dispatching two scouts to re-derive a failure the session had already produced, waiting 11 minutes on them, and never reading their output — the transcript of the original failure was already the baseline. The patch says what counts as the test (a written record of the failure, however obtained) and gives RED two sources: quote this session's own record when it exists, stage a scenario only when none does.
 
 It is a three-region change in one file — the Iron Law text, the RED section, and one checklist entry — not a restructure of the skill.
+
+##### Verification scales to the failure
+
+The third patch touches the same file plus its subagent reference, because the second patch fixed *where* a baseline comes from but not *what instrument to test with*. The per-type table did define reference skills ("test retrieval") and the subagent reference opened by telling you to load it when "creating or editing skills" — with no rule to violate, the only instrument on offer was still a dispatched scenario. A session editing a reference skill therefore dispatched four subagents — 35.7, 11.0, 4.4 and 14.8 minutes, 66 minutes total, the last aborting at `This operation was aborted` — for work a local checker settled in seconds. The cost sat in waiting on model turns (1.4–3.5 minutes each; the passing run's largest gap was 1.2), not in the model, which was correct throughout.
+
+The patch adds four sentences and one table row: verification scales to the failure (fact-shaped failures get a checker you run yourself; dispatches are reserved for the wording question they can answer), reference skills become "artifact generators" tested by running the procedure, the subagent reference declares itself for rule-enforcing skills only, and the checklist's pressure-scenario item is marked discipline-only. It keeps the Iron Law intact — a failing test first — and only stops the Iron Law from meaning "dispatch a scenario" for failures that were never about behavior under pressure.
 
 #### Upgrading a fork install
 
