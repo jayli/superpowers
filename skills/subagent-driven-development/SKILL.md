@@ -218,6 +218,47 @@ that implementer. Single-file mechanical fixes also take the cheapest tier.
 - Touches multiple files with integration concerns → standard model
 - Requires design judgment or broad codebase understanding → most capable model
 
+## Task Budgets
+
+**Every dispatch carries an explicit `timeoutMs`.** An omitted value lets the
+platform default decide when to kill the run — and that kill lands mid-work,
+not at a natural boundary. A real session ran 23 dispatches with no timeout
+set; six hit the platform default and four of them ended at a deadline
+checkpoint with nothing committed.
+
+Pair it with `checkpointBeforeDeadlineMs`, which asks the child to *stop and
+hand off* before the deadline instead of being cut off at it. The difference
+matters: a child that checkpoints commits its work and reports; a child that
+is cut off leaves work uncommitted, and the next round redoes it.
+
+| Task type | `timeoutMs` | `checkpointBeforeDeadlineMs` |
+|---|---|---|
+| Single-file mechanical change | 15 min (`900000`) | 2 min (`120000`) |
+| Normal implementation | 30 min (`1800000`) | 3 min (`180000`) |
+| Exploration, gate probe, multi-file integration | 45 min (`2700000`) | 5 min (`300000`) |
+| Full test suite, benchmarks | do not dispatch — see below | — |
+
+Set the platform default in settings (`subagents.timeoutMs` for the run
+deadline, `subagents.checkpointBeforeDeadlineMs` for the warning) so a
+dispatch that omits both still checkpoints rather than being killed bare; the
+per-dispatch values above override them. Note the two defaults are not
+equally broad: `timeoutMs` covers foreground launches and plain single-agent
+async runs, while `checkpointBeforeDeadlineMs` applies to async single-agent
+runs only — a composite async workflow is unbounded at the top level, so its
+children need their own values.
+
+**Long-running validation is the controller's job, not a child's.** Run the
+full suite, benchmarks, or any command that outlives a single child turn with
+`run_in_background` from the controller session. A subagent's background
+tasks are killed when its own run terminates, so a child that backgrounds a
+long command and ends its turn orphans the work — a real session lost a full
+E2E run this way and had to diagnose the dead process by watching file size.
+
+**Size the budget to the slice, not to the task.** A worker asked to land a
+whole task in one 60-minute run has no safe place to stop; a worker asked for
+a slice that ends in a commit can be cut anywhere without losing ground.
+Prefer several bounded dispatches that each end in a commit over one long one.
+
 ## The Task Loop
 
 **Batch small same-shape work.** When the plan lists several tasks that are
@@ -236,6 +277,9 @@ and is re-read on every later turn. Hand artifacts over as files.
 short timeouts, and never sit in one silent, open-ended wait either.
 While you have local work — ledger updates, packaging the next review,
 reading reports — keep working; child results arrive on their own.
+
+**Long commands belong to you, not to the child** — see Task Budgets above
+for why a child's background tasks die with its run.
 
 **Check your platform before you choose a wait.** On a platform where a
 completed child *wakes the parent session natively* (pi, and any harness

@@ -12,6 +12,8 @@ Subagent (general-purpose):
   description: "Review Task N (spec + quality)"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
+  options: { timeoutMs: [BUDGET — REQUIRED: see SKILL.md Task Budgets],
+             checkpointBeforeDeadlineMs: [usually 300000] }
   prompt: |
     You are reviewing one task's implementation: first whether it matches its
     requirements, then whether it is well-built. This is a task-scoped gate,

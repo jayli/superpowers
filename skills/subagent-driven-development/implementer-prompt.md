@@ -7,6 +7,10 @@ Subagent (general-purpose):
   description: "Implement Task N: [task name]"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
+  options: { timeoutMs: [BUDGET — REQUIRED: size to the task, see SKILL.md
+                           Task Budgets; an omitted value lets the platform
+                           default kill the run mid-work],
+             checkpointBeforeDeadlineMs: [usually 300000] }
   prompt: |
     You are implementing Task N: [task name]
 
