@@ -99,6 +99,17 @@ git merge <feature-branch>
 <test command>
 ```
 
+**If your harness has a session cwd that `cd` does not change** (pi is one:
+`ctx.cwd` is fixed at session creation, and a `cd` inside a shell command affects
+only that child process), the `cd "$MAIN_ROOT"` above is *not* leaving the
+worktree. Move the **session** with the platform's workspace-exit tool before
+Step 6 — on pi that is the `worktree` tool with `action: "exit"` (call it alone;
+it ends the turn so the switch lands), or `/worktree exit` for your human
+partner. Removing the tree while the session cwd still points into it leaves the
+session pinned to a deleted directory: bash then fails at spawn for the rest of
+the session and only in-process fs tools keep working. Do not infer the session
+cwd from `pwd` output — that reports the child process, not the session.
+
 If tests fail on the merged result: stop, leave the worktree and branch in
 place, and investigate — nothing has been pushed, so the merge is local
 and recoverable.
@@ -164,6 +175,13 @@ main repo root — worktree removal must run from outside the worktree —
 and use the `GIT_DIR`/`GIT_COMMON`/`WORKTREE_PATH` values captured in
 Step 2, from before that directory change.
 
+**On a harness whose session cwd `cd` cannot move, "changed directory" must mean
+the session moved.** Verify it with the harness's own cwd indicator, not with
+`pwd` from a shell command. If the session is still inside the worktree, exit it
+first (pi: `worktree` tool with `action: "exit"`, alone) and run this step in the
+next turn. Deleting the tree from a session still parked inside it breaks bash
+for the remainder of that session.
+
 **If `GIT_DIR == GIT_COMMON`:** Normal repo, no worktree to clean up. Done.
 
 **If `WORKTREE_PATH` is under `.worktrees/` or `worktrees/`:** Superpowers
@@ -221,5 +239,7 @@ place. If your platform provides a workspace-exit tool, use it.
 | "This other worktree looks stale — I'll clean it too" | Clean up only worktrees under `.worktrees/` or `worktrees/`. Everything else belongs to the host. |
 | "Removal refused — `--force` is just finishing the cleanup" | The refusal means files exist only in that worktree. `--force` destroys them permanently. Show your human partner and ask. |
 | "The merged-result failure is probably flaky" | A failing merged result stops everything. Branch and worktree stay put while you investigate. |
+| "I ran `cd $MAIN_ROOT`, so the session left the worktree" | `cd` moves one child process. On pi and similar harnesses the session cwd stays in the tree, and removing it breaks bash at spawn for the rest of the session. Move the session with the workspace-exit tool and check the harness's cwd indicator. |
+| "No exit tool exists, so cleanup is impossible" | Check the tool's own actions before concluding that: an enter-only tool may take an exit action (pi's `worktree` takes `action: "exit"`). Only ask your human partner to move the session after you have looked. |
 | "The base branch is obviously main" | Confirm the fork point or ask. Merging into the wrong base is expensive to undo. |
 | "The push was rejected — force-push will fix it" | A rejected push means the remote moved. Investigate; force-push only on your human partner's explicit request. |
