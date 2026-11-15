@@ -15,10 +15,6 @@ const bootstrapSkillPath = resolve(skillsDir, "using-superpowers", "SKILL.md");
 let cachedBootstrap: string | null | undefined;
 
 export default function superpowersPiExtension(pi: ExtensionAPI) {
-	pi.on("resources_discover", async () => ({
-		skillPaths: [skillsDir],
-	}));
-
 	// The bootstrap is injected as a persisted `custom_message` entry rather than as a
 	// request-time `context` transform. A `context` transform is restored after each
 	// request and never reaches the session file, so the next turn's history no longer

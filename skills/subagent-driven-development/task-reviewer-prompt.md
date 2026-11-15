@@ -12,7 +12,11 @@ Subagent (general-purpose):
   description: "Review Task N (spec + quality)"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
-  options: { timeoutMs: [BUDGET — REQUIRED: see SKILL.md Task Budgets],
+  options: { timeoutMs: [OMIT BY DEFAULT — the machine's subagent config
+                         already caps a run at 20 min and checkpoints 5 min
+                         before it; write a value only when this slice is
+                         itself larger than 20 min, see the Task Budgets
+                         reference in superpowers:subagent-driven-development],
              checkpointBeforeDeadlineMs: [usually 300000] }
   prompt: |
     You are reviewing one task's implementation: first whether it matches its
@@ -191,7 +195,8 @@ Subagent (general-purpose):
 
 **Placeholders:**
 - `[MODEL]` — REQUIRED: reviewer model per SKILL.md Model Selection
-- `[BRIEF_FILE]` — REQUIRED: the task brief file (`bash scripts/task-brief PLAN N`
+- `[BRIEF_FILE]` — REQUIRED: the task brief file (`bash scripts/task-brief PLAN N`,
+  run by its absolute path, from the working tree you're executing in,
   prints the path; same file the implementer worked from)
 - `[GLOBAL_CONSTRAINTS]` — the binding requirements copied verbatim from
   the plan's Global Constraints section or the spec: exact values, formats,
@@ -202,7 +207,8 @@ Subagent (general-purpose):
 - `[BASE_SHA]` — commit before this task
 - `[HEAD_SHA]` — current commit
 - `[DIFF_FILE]` — REQUIRED: the path the controller wrote the review
-  package to (`bash scripts/review-package PLAN_FILE BASE HEAD` prints the unique
+  package to (`bash scripts/review-package PLAN_FILE BASE HEAD`, run by its
+  absolute path, from the working tree you're executing in, prints the unique
   path it wrote; the package never enters the controller's context)
 
 **Reviewer returns:** Spec Compliance verdict (✅/❌/⚠️), Strengths, Issues

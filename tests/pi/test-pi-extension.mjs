@@ -70,22 +70,16 @@ test('package.json declares a pi package with skills and extension resources', a
 test('extension registers persistence and safety-net hooks', async () => {
   const { handlers } = await loadExtension();
 
-  for (const event of ['resources_discover', 'before_agent_start', 'context']) {
+  // Regression guard (#2394): re-adding the skills directory here bypassed the
+  // package manifest's `pi.skills` filter, so `"skills": []` still loaded all 15.
+  assert.equal((handlers.get('resources_discover') ?? []).length, 0, 'extension must not bypass package skill filters');
+  for (const event of ['before_agent_start', 'context']) {
     assert.equal((handlers.get(event) ?? []).length, 1, `missing ${event} handler`);
   }
   // Regression guard: a per-turn `agent_end` reset is what made the bootstrap
   // single-turn. Its absence is now part of the contract.
   assert.equal((handlers.get('agent_end') ?? []).length, 0, 'agent_end must not reset injection');
   assert.equal((handlers.get('session_before_compact') ?? []).length, 0);
-});
-
-test('resources_discover contributes the bundled skills directory', async () => {
-  const { handlers } = await loadExtension();
-  const discover = firstHandler(handlers, 'resources_discover');
-
-  const result = await discover({ type: 'resources_discover', cwd: repoRoot, reason: 'startup' }, makeCtx());
-
-  assert.deepEqual(result.skillPaths, [resolve(repoRoot, 'skills')]);
 });
 
 test('before_agent_start persists the bootstrap when the projection lacks it', async () => {

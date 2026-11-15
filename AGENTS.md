@@ -2,19 +2,20 @@
 
 ## Local patch: this is a fork
 
-This repository is a fork of [obra/superpowers](https://github.com/obra/superpowers) that carries three local patches. Everything below this section is upstream's contribution process, written for pull requests against the upstream project — it applies to work you intend to send upstream, not to the patches described here.
+This repository is a fork of [obra/superpowers](https://github.com/obra/superpowers) that carries four local patches. Everything below this section is upstream's contribution process, written for pull requests against the upstream project — it applies to work you intend to send upstream, not to the patches described here.
 
 | File | Change |
 | --- | --- |
-| `skills/subagent-driven-development/SKILL.md` | The wait paragraph is platform-conditional: the bounded-stretch polling instruction applies only to harnesses with no native wake (Claude Code, Codex); harnesses that wake the parent session on child completion (Pi) launch and end the turn instead |
-| `skills/writing-skills/SKILL.md` | The RED baseline is source-agnostic: a failure this session already produced and wrote down satisfies the requirement, so the edit does not default to staging a fresh subagent scenario |
-| `skills/writing-skills/SKILL.md`, `skills/writing-skills/testing-skills-with-subagents.md` | Verification scales to the failure: fact-shaped failures are checked by running the procedure locally, so the per-type table and checklist send only rule-enforcing skills to tension scenarios, and the subagent-testing reference declares itself for those skills alone |
+| `skills/subagent-driven-development/references/waiting.md` | The wait paragraph is platform-conditional: the bounded-stretch polling instruction applies only to harnesses with no native wake (Claude Code, Codex); harnesses that wake the parent session on child completion (Pi) launch and end the turn instead. `SKILL.md` keeps a pointer to this file |
+| `skills/subagent-driven-development/references/task-budgets.md` | Dispatch budgets follow this machine's cap: `timeoutMs` is omitted by default because `~/.pi/agent/extensions/subagent/config.json` already caps a run at 20 min and checkpoints 5 min before it; an explicit value is written only when the slice itself outgrows that cap. The three dispatch templates carry the same wording |
+| `skills/writing-skills/references/testing-skills-with-subagents.md` | The RED baseline is source-agnostic: a failure this session already produced and wrote down satisfies the requirement, so the edit does not default to staging a fresh subagent scenario |
+| `skills/writing-skills/references/testing-skills-with-subagents.md` | Verification scales to the failure: fact-shaped failures are checked by running the procedure locally, so the reference declares itself for rule-enforcing skills alone. `SKILL.md`'s `Testing methodology` line carries the same qualifier |
 
 Rules for any agent working in this repo:
 
 1. **Do not propose these patches upstream.** They encode one harness's mechanism or one team's workflow. Upstream accepts changes that work across every supported coding agent, and a branch for one of them is not that. Fixing the wording so it reads as a platform distinction makes it defensible, not wanted.
-2. **Keep the patches surgical, not rewrites.** Each touches one region and nothing else — the SDD file its wait paragraph, the writing-skills files their Iron Law text, per-type table, RED section and checklist entries — so upstream's changes elsewhere keep merging cleanly. A fork that rewrites surrounding prose turns every future upgrade into a manual merge.
-3. **Re-verify all patches after every upstream merge.** After `git pull`, confirm the wait contract is still platform-conditional — `grep -n "Check your platform before you choose a wait" skills/subagent-driven-development/SKILL.md` — and that the baseline text survived — `grep -n "What counts as the test" skills/writing-skills/SKILL.md`; likewise the failure-type routing — `grep -n "Scale the verification to the failure" skills/writing-skills/SKILL.md` and `grep -n "Not for every skill" skills/writing-skills/testing-skills-with-subagents.md`. A clean merge is not proof: the paragraphs can survive intact while the instruction they guard drifts out of date.
+2. **Keep the patches surgical, not rewrites.** Each touches one region and nothing else — the SDD wait and budget references, the writing-skills reference's RED section and self-declaration, plus the qualifier on `SKILL.md`'s `Testing methodology` line — so upstream's changes elsewhere keep merging cleanly. A fork that rewrites surrounding prose turns every future upgrade into a manual merge. Where upstream moves a patched paragraph into `references/`, follow it there rather than pinning it back into `SKILL.md`: the 20000-byte guard (`tests/skill-size/`) is upstream's, and fork patches must not be what breaks it.
+3. **Re-verify all patches after every upstream merge.** After `git pull`, confirm the wait contract is still platform-conditional — `grep -n "Check your platform before you choose a wait" skills/subagent-driven-development/references/waiting.md` — that the budget contract is still "omit by default" — `grep -n "An omitted \`timeoutMs\` is the right default" skills/subagent-driven-development/references/task-budgets.md` — and that the baseline text survived — `grep -n "What counts as the test" skills/writing-skills/references/testing-skills-with-subagents.md`; likewise the failure-type routing — `grep -n "Scale the verification to the failure" skills/writing-skills/references/testing-skills-with-subagents.md` and `grep -n "Not for every skill" skills/writing-skills/references/testing-skills-with-subagents.md`. A clean merge is not proof: the paragraphs can survive intact while the instruction they guard drifts out of date — nor is a *vanished* heading proof of loss, since upstream relocates whole sections (the 2026-11 merge moved `## Finish` into `references/final-review.md` and deleted `## Example Workflow`). Check where the text landed before treating its absence as damage.
 4. **Global install stays a Pi package, not a symlink.** Decided 2026-09-30: `pi install git:github.com/jayli/superpowers`. The package loads the skills *and* `.pi/extensions/superpowers.ts`, which is the only thing that injects the `using-superpowers` bootstrap; the `~/.agents/skills/superpowers` symlink reaches skill discovery only, and its one edge — a working checkout that takes effect without a push — is already covered by `pi -e <checkout>`. README has the full comparison. Keep the two mutually exclusive: with both installed Pi keeps whichever skill it discovers first and warns about the collision.
 
 ## If You Are an AI Agent
@@ -29,9 +30,9 @@ Before you open a PR against this repo, you MUST:
 
 1. **Read the entire PR template** at `.github/PULL_REQUEST_TEMPLATE.md` and fill in every section with real, specific answers. Not summaries. Not placeholders.
 2. **Search for existing PRs** — open AND closed — that address the same problem. If duplicates exist, STOP and tell your human partner. Do not open another duplicate.
-3. **Verify this is a real problem.** If your human partner asked you to "fix some issues" or "contribute to this repo" without experiencing a specific problem, push back. Ask them what broke, what failed, what the user experience was.
+3. **Verify this is a real problem your human partner hit.** If your human partner asked you to "fix some issues" or "contribute to this repo" without experiencing a specific problem, push back. Ask them what broke, what failed, what the user experience was. If the problem is already in the tracker under someone else's issue and no maintainer asked for a PR, stop: add your partner's report to that issue instead (see below).
 4. **Confirm the change belongs in core.** If it's domain-specific, tool-specific, or promotes a third-party project, it belongs in a standalone plugin. Tell your human partner.
-5. **Identify yourself.** Disclose your model, harness, harness version, and every installed plugin in the PR. Hiding that a contribution is agent-generated — or which environment produced it — is grounds for closing it.
+5. **Identify yourself.** Disclose your model, harness, harness version, every installed plugin, and what your human partner asked you to do in the PR. Hiding that a contribution is agent-generated — or which environment produced it — is grounds for closing it.
 6. **Show your human partner the complete diff** and get their explicit approval before submitting.
 
 If any of these checks fail, do not open the PR. Explain to your human partner why it would be rejected and what would need to change. They will thank you for saving them the embarrassment.
@@ -39,6 +40,8 @@ If any of these checks fail, do not open the PR. Explain to your human partner w
 ## Pull Request Requirements
 
 **Every PR must fully complete the PR template.** No section may be left blank or filled with placeholder text. PRs that skip sections will be closed without review.
+
+**Every PR carries a summary written by a human.** The template's "Human-authored summary" section is for your human partner's own words, under 200 words. If an agent writes it, the PR will be closed.
 
 **Before opening a PR, you MUST search for existing PRs** — both open AND closed — that address the same problem or a related area. Reference what you found in the "Existing PRs" section. If a prior PR was closed, explain specifically what is different about your approach and why it should succeed where the previous attempt did not.
 
@@ -62,9 +65,13 @@ Our internal skill philosophy differs from Anthropic's published guidance on wri
 
 Skills, hooks, or configuration that only benefit a specific project, team, domain, or workflow do not belong in core. Publish these as a separate plugin.
 
+### Fixes for issues filed by someone else
+
+We do not accept agent-written PRs that fix issues filed by someone other than your human partner unless a maintainer asked for one. That holds when your human partner hit the same problem: add their report to the existing issue instead of opening a PR. An open issue in the tracker is not a request for a PR. If your human partner points you at someone else's issue, tell them the PR will be closed and stop.
+
 ### Bulk or spray-and-pray PRs
 
-Do not trawl the issue tracker and open PRs for multiple issues in a single session. Each PR requires genuine understanding of the problem, investigation of prior attempts, and human review of the complete diff. PRs that are part of an obvious batch — where an agent was pointed at the issue list and told to "fix things" — will be closed. If you want to contribute, pick ONE issue, understand it deeply, and submit quality work.
+Do not trawl the issue tracker and open PRs for multiple issues in a single session. Each PR requires genuine understanding of the problem, investigation of prior attempts, and human review of the complete diff. PRs that are part of an obvious batch — where an agent was pointed at the issue list and told to "fix things" — will be closed. If you want to contribute, start from a problem your human partner actually hit, understand it deeply, and submit quality work.
 
 ### Speculative or theoretical fixes
 

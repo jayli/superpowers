@@ -12,7 +12,11 @@ Subagent (general-purpose):
   description: "Re-review Task N fix round R"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
-  options: { timeoutMs: [BUDGET — REQUIRED: see SKILL.md Task Budgets],
+  options: { timeoutMs: [OMIT BY DEFAULT — the machine's subagent config
+                         already caps a run at 20 min and checkpoints 5 min
+                         before it; write a value only when this slice is
+                         itself larger than 20 min, see the Task Budgets
+                         reference in superpowers:subagent-driven-development],
              checkpointBeforeDeadlineMs: [usually 300000] }
   prompt: |
     You are re-reviewing one task's fix round. A previous review produced
@@ -112,6 +116,7 @@ Subagent (general-purpose):
 - `[FIX_BASE_SHA]` — the head the previous review saw
 - `[HEAD_SHA]` — current commit
 - `[DIFF_FILE]` — the path `bash scripts/review-package PLAN_FILE FIX_BASE HEAD` printed
+  (run by its absolute path, from the working tree you're executing in)
 
 **Re-reviewer returns:** per-finding verdicts (ADDRESSED / NOT ADDRESSED),
 new breakage in the fix diff, out-of-scope observations, and a round verdict.

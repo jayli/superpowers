@@ -4,6 +4,8 @@
 
 **Not for every skill.** Reference and technique skills (API docs, artifact generators, command references) have no rule to violate — verify those by running their procedure and checking the artifact, per [Testing All Skill Types](SKILL.md#testing-all-skill-types). Pressure scenarios cost dispatches; spend them on skills whose value is compliance under pressure.
 
+**Scale the verification to the failure.** RED/GREEN earns its cost when the thing under test is a skill's **prose** — whether wording actually changes what an agent does under pressure. It earns nothing when the failure is a fact you can check locally: a wrong value, a broken reference, a missing field. Those get a checker you run yourself — seconds, not dispatches. Confirm the skill's *content* is right by running it once, and spend scenario dispatches only on the *wording* question that a checker cannot answer ("does this phrasing change behavior?"). Running the full cycle against a fact-shaped failure buys no signal and costs a session.
+
 ## Overview
 
 **Testing skills is just TDD applied to process documentation.**
@@ -14,7 +16,7 @@ You run scenarios without the skill (RED - watch agent fail), write skill addres
 
 **REQUIRED BACKGROUND:** You MUST understand superpowers:test-driven-development before using this skill. That skill defines the fundamental RED-GREEN-REFACTOR cycle. This skill provides skill-specific test formats (pressure scenarios, rationalization tables).
 
-**Complete worked example:** See examples/CLAUDE_MD_TESTING.md for a full test campaign testing CLAUDE.md documentation variants.
+**Complete worked example:** See CLAUDE_MD_TESTING.md in this directory for a full test campaign testing CLAUDE.md documentation variants.
 
 ## When to Use
 
@@ -47,6 +49,8 @@ Same cycle as code TDD, different test format.
 **Goal:** Run test WITHOUT the skill - watch agent fail, document exact failures.
 
 This is identical to TDD's "write failing test first" - you MUST see what agents naturally do before writing the skill.
+
+**What counts as the test.** RED is satisfied by a written record of the failure — the agent's wrong turns and exact wording, not a summary of them — however you obtained it. When you already have that record in hand, quoting it is the test; re-staging it is redundant work, not extra rigor.
 
 **Process:**
 
@@ -141,7 +145,7 @@ Forces explicit choice.
 
 **Best tests combine 3+ pressures.**
 
-**Why this works:** See persuasion-principles.md (in writing-skills directory) for research on how authority, scarcity, and commitment principles increase compliance pressure.
+**Why this works:** See persuasion-principles.md (in this directory) for research on how authority, scarcity, and commitment principles increase compliance pressure.
 
 ### Key Elements of Good Scenarios
 

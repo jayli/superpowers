@@ -94,8 +94,9 @@ Install Superpowers as a plugin from this repository:
 agy plugin install https://github.com/obra/superpowers
 ```
 
-Antigravity runs the plugin's session-start hook, so Superpowers is active from
-the first message. Reinstall with the same command to update.
+Antigravity lists each installed skill's description, and the description of
+the `using-superpowers` skill prompts the model to load that skill at the start
+of a conversation. Reinstall with the same command to update.
 
 ### Codex App
 
@@ -298,11 +299,11 @@ pi remove git:github.com/jayli/superpowers
 
 #### Local patches
 
-This fork carries three patches to upstream.
+This fork carries four patches to upstream. Since the v7.0.2 merge, the patched prose lives in `references/` alongside upstream's own moved sections — upstream's 20000-byte `SKILL.md` guard (`tests/skill-size/`) applies to the fork too, so a patch that only lives in `SKILL.md` would break it.
 
 ##### Pi wait contract
 
-The first is `skills/subagent-driven-development/SKILL.md`, which replaces the unconditional "wait in bounded stretches" paragraph with a platform-conditional one.
+The first is `skills/subagent-driven-development/references/waiting.md`, which replaces the unconditional "wait in bounded stretches" paragraph with a platform-conditional one; `SKILL.md` points at it.
 
 Upstream's wording assumes every harness lacks native wake, so it tells the controller to poll a wait interface every five to ten minutes. Pi's subagent extension wakes the parent session when a child completes, so that instruction converts a parallel workflow into a serial one — a measured session spent 5.73 of 8.8 hours blocked in `bg_wait`, 3.0 hours of it on wait windows that expired with nothing to collect.
 
@@ -310,15 +311,19 @@ The patch keeps the bounded-stretch instruction for platforms that do need it (C
 
 ##### Baseline source
 
-The second patch is `skills/writing-skills/SKILL.md`. Upstream's Iron Law — no skill without a failing test first, edits included — was read as requiring a fresh subagent scenario every time a skill is edited, and the checklist's "Run scenarios WITHOUT skill" told you exactly how. In a session where the agent added one recipe to an existing skill, that meant dispatching two scouts to re-derive a failure the session had already produced, waiting 11 minutes on them, and never reading their output — the transcript of the original failure was already the baseline. The patch says what counts as the test (a written record of the failure, however obtained) and gives RED two sources: quote this session's own record when it exists, stage a scenario only when none does.
+The second patch is `skills/writing-skills/references/testing-skills-with-subagents.md`. Upstream's Iron Law — no skill without a failing test first, edits included — was read as requiring a fresh subagent scenario every time a skill is edited, and the checklist's "Run scenarios WITHOUT skill" told you exactly how. In a session where the agent added one recipe to an existing skill, that meant dispatching two scouts to re-derive a failure the session had already produced, waiting 11 minutes on them, and never reading their output — the transcript of the original failure was already the baseline. The patch says what counts as the test (a written record of the failure, however obtained) and gives RED two sources: quote this session's own record when it exists, stage a scenario only when none does.
 
-It is a three-region change in one file — the Iron Law text, the RED section, and one checklist entry — not a restructure of the skill.
+It is a paragraph in that reference's RED section, not a restructure of the skill.
 
 ##### Verification scales to the failure
 
-The third patch touches the same file plus its subagent reference, because the second patch fixed *where* a baseline comes from but not *what instrument to test with*. The per-type table did define reference skills ("test retrieval") and the subagent reference opened by telling you to load it when "creating or editing skills" — with no rule to violate, the only instrument on offer was still a dispatched scenario. A session editing a reference skill therefore dispatched four subagents — 35.7, 11.0, 4.4 and 14.8 minutes, 66 minutes total, the last aborting at `This operation was aborted` — for work a local checker settled in seconds. The cost sat in waiting on model turns (1.4–3.5 minutes each; the passing run's largest gap was 1.2), not in the model, which was correct throughout.
+The third patch touches the same reference plus the `Testing methodology` line in `skills/writing-skills/SKILL.md`, because the second patch fixed *where* a baseline comes from but not *what instrument to test with*. The per-type table did define reference skills ("test retrieval") and the subagent reference opened by telling you to load it when "creating or editing skills" — with no rule to violate, the only instrument on offer was still a dispatched scenario. A session editing a reference skill therefore dispatched four subagents — 35.7, 11.0, 4.4 and 14.8 minutes, 66 minutes total, the last aborting at `This operation was aborted` — for work a local checker settled in seconds. The cost sat in waiting on model turns (1.4–3.5 minutes each; the passing run's largest gap was 1.2), not in the model, which was correct throughout.
 
 The patch adds four sentences and one table row: verification scales to the failure (fact-shaped failures get a checker you run yourself; dispatches are reserved for the wording question they can answer), reference skills become "artifact generators" tested by running the procedure, the subagent reference declares itself for rule-enforcing skills only, and the checklist's pressure-scenario item is marked discipline-only. It keeps the Iron Law intact — a failing test first — and only stops the Iron Law from meaning "dispatch a scenario" for failures that were never about behavior under pressure.
+
+##### Dispatch budgets
+
+The fourth is `skills/subagent-driven-development/references/task-budgets.md` plus the three dispatch templates (`implementer-prompt.md`, `task-reviewer-prompt.md`, `re-review-prompt.md`). Upstream says nothing about dispatch deadlines (its only `timeoutMs` mentions are in `systematic-debugging`'s wait-condition examples); this machine caps every subagent run at 20 minutes and asks it to checkpoint 5 minutes before that, so `timeoutMs` is **omitted by default** and written only when the slice itself outgrows the cap. The templates said `REQUIRED` until 2026-11-15: a 25-dispatch session raised most of them to 30–45 minutes and the ones that hit the limit dropped uncommitted work at the checkpoint. The reference also names the only file the cap is read from (`~/.pi/agent/extensions/subagent/config.json`) — `subagents.timeoutMs` in `settings.json` is never consulted.
 
 #### Upgrading a fork install
 
@@ -368,8 +373,8 @@ So the dependency runs both directions. Install pi-coder without these skills an
 Self-contained parts and known caveats:
 
 - The **skills** are upstream's, unchanged. They run on any harness; only this fork's Pi layer is pi-coder-specific.
-- The **library-precedent exceptions** are inherited from upstream and do not apply here. `brainstorming` offers an `elements-of-style:writing-clearly-and-concisely` skill when writing the spec, and `writing-plans` hands the plan to `superpowers:subagent-driven-development` or `superpowers:executing-plans`. pi-coder ships no `elements-of-style` equivalent, and the upstream `requesting-code-review` mapping of a subagent dispatch onto a `general-purpose` agent resolves to a real agent name only through `pi-tools.md` — bare, it fails with `Unknown agent`.
-- **The one local patch** is the platform-conditional wait contract in `subagent-driven-development`, and it is written for Pi against `pi-subagents`' native completion wake. On harnesses without that wake path, follow the skill's other branch.
+- The **library-precedent exceptions** are inherited from upstream and mostly do not apply here. `writing-plans` hands the plan to `superpowers:subagent-driven-development` or `superpowers:executing-plans`; pi-coder ships no equivalent for either. The upstream `requesting-code-review` mapping of a subagent dispatch onto a `general-purpose` agent resolves to a real agent name only through `pi-tools.md` — bare, it fails with `Unknown agent`.
+- **The local patches** are the platform-conditional wait contract and the omit-by-default dispatch budgets in `subagent-driven-development` (both under its `references/`), plus the source-agnostic RED baseline and failure-type verification routing in `writing-skills`' testing reference. They are written for Pi against `pi-subagents`' native completion wake and this machine's subagent cap. On harnesses without that wake path, follow the skill's other branch. `AGENTS.md` lists them with the greps that re-verify each after an upstream merge.
 
 ### Qwen Code
 
@@ -428,7 +433,7 @@ Restart any active Muse sessions after installing so the `SessionStart` hook tak
 
 ## The Basic Workflow
 
-1. **brainstorming** - Activates before writing code. Refines rough ideas through questions, explores alternatives, presents design in sections for validation. Saves design document.
+1. **brainstorming** - Activates before building anything. Draws out what you actually want, and why, through questions that get you describing it, then plays its understanding back for correction. Small changes get agreed in chat; projects get a written design document a builder could plan from.
 
 2. **using-git-worktrees** - Activates after design approval. Creates isolated workspace on new branch, runs project setup, verifies clean test baseline.
 
@@ -471,7 +476,7 @@ Superpowers is built by [Jesse Vincent](https://blog.fsck.com) and the rest of t
 - **diagnosing-superpowers** - Work out what went wrong in a session, with evidence; export a scrubbed bundle or file an issue
 
 **Collaboration** 
-- **brainstorming** - Socratic design refinement
+- **brainstorming** - Drawing out intent before building
 - **writing-plans** - Detailed implementation plans
 - **executing-plans** - Inline plan execution: one context, one final review
 - **dispatching-parallel-agents** - Concurrent subagent workflows
@@ -496,13 +501,13 @@ Read [the original release announcement](https://blog.fsck.com/2025/10/09/superp
 
 ## Contributing
 
-The general contribution process for Superpowers is below. Keep in mind that we don't generally accept contributions of new skills and that any updates to skills must work across all of the coding agents we support.
+The general contribution process for Superpowers is below. Keep in mind that we don't generally accept contributions of new skills and that any updates to skills must work across all of the coding agents we support. We also don't accept agent-written PRs that fix issues filed by someone else unless a maintainer asked for one, even when you hit the same problem; add your report to the existing issue instead.
 
 1. Fork the repository
 2. Switch to the 'dev' branch
 3. Create a branch for your work
 4. Follow the `writing-skills` skill for creating and testing new and modified skills
-5. Submit a PR, being sure to fill in the pull request template.
+5. Submit a PR, filling in every section of the pull request template, including the summary a human writes in their own words.
 
 Skill-behavior tests use the drill eval harness from [superpowers-evals](https://github.com/prime-radiant-inc/superpowers-evals/), cloned into `evals/` — see `evals/README.md` for setup. Plugin-infrastructure tests live at `tests/` and run via the relevant `run-*.sh` or `npm test`.
 

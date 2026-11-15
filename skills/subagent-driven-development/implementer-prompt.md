@@ -7,9 +7,11 @@ Subagent (general-purpose):
   description: "Implement Task N: [task name]"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
-  options: { timeoutMs: [BUDGET — REQUIRED: size to the task, see SKILL.md
-                           Task Budgets; an omitted value lets the platform
-                           default kill the run mid-work],
+  options: { timeoutMs: [OMIT BY DEFAULT — the machine's subagent config
+                           already caps a run at 20 min and checkpoints 5 min
+                           before it; write a value only when this slice is
+                           itself larger than 20 min, see the Task Budgets
+                           reference in superpowers:subagent-driven-development],
              checkpointBeforeDeadlineMs: [usually 300000] }
   prompt: |
     You are implementing Task N: [task name]
